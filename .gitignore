@@ -1,0 +1,17 @@
+# File temporanei LaTeX
+*.aux
+*.log
+*.out
+*.toc
+*.synctex*
+*.fdb_latexmk
+*.fls
+*.lof
+*.lot
+*.nav
+*.snm
+*.vrb
+
+# Cartelle temporanee
+out/
+build/ 
