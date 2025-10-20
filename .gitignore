@@ -12,6 +12,13 @@
 *.snm
 *.vrb
 
+# File temporanei LaTeX
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.synctex.gz
+
 # Cartelle temporanee
 out/
 build/ 
