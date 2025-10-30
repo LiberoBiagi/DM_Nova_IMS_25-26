@@ -22,3 +22,7 @@
 # Cartelle temporanee
 out/
 build/ 
+
+
+# Figures
+Figures/*.svg
