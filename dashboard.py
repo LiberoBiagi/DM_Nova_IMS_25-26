@@ -6,7 +6,7 @@ st.set_page_config(page_title="Dashboard", layout="wide")
 st.title("EDA Dashboard - AIAI Customer loyalty")
 
 #Loading data
-df = pd.read_csv("customer_data.csv")
+df = pd.read_csv("https://raw.githubusercontent.com/LiberoBiagi/DM_Nova_IMS_25-26/refs/heads/main/customer_data")
 
 
 # Define filter sidebar
