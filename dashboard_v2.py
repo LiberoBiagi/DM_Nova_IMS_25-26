@@ -5,6 +5,9 @@ import plotly.express as px
 import pandas as pd
 import pathlib
 
+# TODO: Unscale axis before visualization -> DONE
+# TODO: Drop down menu to select axis (x,y,z) -> DONE
+# TODO: Add buttons for selecting different cluster types -> DONE
 
 try:
     df = pd.read_csv("Data/clustered_df.csv")
@@ -19,6 +22,15 @@ app = dash.Dash(__name__, external_stylesheets=[dbc.themes.SANDSTONE])
 gender_options = [{'label': i, 'value': i} for i in df['Gender'].unique()]
 education_options = [{'label': i, 'value': i} for i in df['Education'].unique()]
 marital_options = [{'label': i, 'value': i} for i in df['Marital Status'].unique()]
+
+axis_columns = [
+    'Income', 'Customer Lifetime Value', 'Subscription_Duration_Days',
+    'Flights_in_Subscription', 'Total_Flights', 'percentage_flights_as_sub',
+    'mean_spent', 'distance_airport', 'Total_Distance_KM',
+    'Total_Num_Flights_With_Companions', 'Total_Points_Redeemed', 'PRR',
+    'Avg_Flight_Dist_KM', 'Comp_Ratio', 'most_recent_flight', 'frequency'
+]
+axis_options = [{'label': i, 'value': i} for i in axis_columns]
 
 app.layout = dbc.Container([
     dbc.Row([
@@ -54,15 +66,39 @@ app.layout = dbc.Container([
                     ),
                     html.Br(),
                     
+                    html.Label("X Axis"),
+                    dcc.Dropdown(id='x-axis-dropdown', options=axis_options, value='frequency', clearable=False),
+                    html.Br(),
+
+                    html.Label("Y Axis"),
+                    dcc.Dropdown(id='y-axis-dropdown', options=axis_options, value='mean_spent', clearable=False),
+                    html.Br(),
+
+                    html.Label("Z Axis"),
+                    dcc.Dropdown(id='z-axis-dropdown', options=axis_options, value='most_recent_flight', clearable=False),
+                    html.Br(),
+
                     html.Label("Cluster Type"),
                     dcc.RadioItems(
                         id='cluster-type',
                         options=[
                             {'label': 'Behavioural', 'value': 'behavioural_cluster'},
-                            {'label': 'Value', 'value': 'value_cluster'}
+                            {'label': 'Value', 'value': 'value_cluster'},
+                            {'label': 'Behavioural Fuzzy 0', 'value': 'behavioural_fuzzy_membership_0'},
+                            {'label': 'Behavioural Fuzzy 1', 'value': 'behavioural_fuzzy_membership_1'},
+                            {'label': 'Value Fuzzy 0', 'value': 'value_fuzzy_membership_0'},
+                            {'label': 'Value Fuzzy 1', 'value': 'value_fuzzy_membership_1'}
                         ],
                         value='behavioural_cluster',
                         inline=True
+                    ),
+                    html.Br(),
+                    
+                    html.Label("Axis Scaling"),
+                    dbc.Switch(
+                        id='scale-toggle',
+                        label="Scale Axes",
+                        value=False
                     ),
                     html.Br(),
                     
@@ -96,9 +132,13 @@ app.layout = dbc.Container([
     Input('education-filter', 'value'),
     Input('marital-filter', 'value'),
     Input('income-slider', 'value'),
-    Input('cluster-type', 'value')
+    Input('x-axis-dropdown', 'value'),
+    Input('y-axis-dropdown', 'value'),
+    Input('z-axis-dropdown', 'value'),
+    Input('cluster-type', 'value'),
+    Input('scale-toggle', 'value')
 )
-def update_graph(selected_genders, selected_educations, selected_marital, income_range, cluster_col):
+def update_graph(selected_genders, selected_educations, selected_marital, income_range, x_axis, y_axis, z_axis, cluster_col, use_scaled):
     dff = df.copy()
     
     if selected_genders:
@@ -110,17 +150,28 @@ def update_graph(selected_genders, selected_educations, selected_marital, income
     
     dff = dff[(dff['Income'] >= income_range[0]) & (dff['Income'] <= income_range[1])]
     
-    # Ensure cluster column is treated as categorical for discrete colors
-    dff[cluster_col] = dff[cluster_col].astype(str)
+    # Ensure cluster column is treated as categorical for discrete colors ONLY if not fuzzy
+    if 'fuzzy' not in cluster_col:
+        dff[cluster_col] = dff[cluster_col].astype(str)
     
+    # Determine which columns to use for axes
+    if use_scaled:
+        x_col = x_axis
+        y_col = y_axis
+        z_col = z_axis
+    else:
+        x_col = x_axis + '_unscaled'
+        y_col = y_axis + '_unscaled'
+        z_col = z_axis + '_unscaled'
+
     fig = px.scatter_3d(
         dff,
-        x='frequency',
-        y='mean_spent',
-        z='most_recent_flight',
+        x=x_col,
+        y=y_col,
+        z=z_col,
         color=cluster_col,
         hover_data=['Loyalty#', 'City', 'Income'],
-        custom_data=['Loyalty#', 'City', 'Income', 'Gender', 'Education', 'Marital Status'],
+        custom_data=['Loyalty#', 'City', 'Income_unscaled', 'Gender', 'Education', 'Marital Status'],
         title=f"Customer Segments ({cluster_col.replace('_', ' ').title()})"
     )
     
@@ -142,7 +193,8 @@ def display_click_data(clickData):
     if not custom_data:
         return html.P("No details available for this point.")
         
-    loyalty_num, city, income, gender, education, marital = custom_data
+    # Handle potential extra data (e.g. from hover_data)
+    loyalty_num, city, income, gender, education, marital = custom_data[:6]
     
     details = [
         html.H5(f"Customer #{loyalty_num}", className="card-title"),
