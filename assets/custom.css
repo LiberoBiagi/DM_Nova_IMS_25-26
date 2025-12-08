@@ -1,0 +1,60 @@
+/* Amazing Airlines Brand Colors */
+:root {
+    --aa-primary: #4ca1d6;
+    --aa-navy: #001d43;
+    --aa-grey: #cacccc;
+    --aa-dark: #444444;
+}
+
+body {
+    background-color: #f8f9fa;
+    color: var(--aa-dark);
+}
+
+.aa-header {
+    background-color: var(--aa-navy);
+    color: white;
+    padding: 20px 0;
+    margin-bottom: 30px;
+    border-bottom: 5px solid var(--aa-primary);
+}
+
+.aa-card {
+    border: none;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.aa-card-header {
+    background-color: var(--aa-primary) !important;
+    color: white !important;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.aa-kpi-card {
+    border-left: 5px solid var(--aa-primary);
+    background: white;
+    transition: transform 0.2s;
+}
+
+.aa-kpi-card:hover {
+    transform: translateY(-5px);
+}
+
+.aa-kpi-value {
+    color: var(--aa-navy);
+    font-weight: 800;
+}
+
+.aa-kpi-title {
+    color: var(--aa-dark);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    opacity: 0.7;
+}
+
+h1, h2, h3, h4, h5 {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
