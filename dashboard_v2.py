@@ -5,6 +5,7 @@ import plotly.express as px
 import pandas as pd
 import pathlib
 
+#TODO: Add back toggle for scaled and unscaled
 
 try:
     df = pd.read_csv("Data/clustered_df.csv")
