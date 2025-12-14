@@ -5,7 +5,7 @@ import plotly.express as px
 import pandas as pd
 import pathlib
 
-#TODO: Add back toggle for scaled and unscaled
+
 
 try:
     df = pd.read_csv("Data/clustered_df.csv")
@@ -176,16 +176,26 @@ app.layout = dbc.Container([
                         options=[
                             {'label': 'Behavioural', 'value': 'behavioural_cluster'},
                             {'label': 'Value', 'value': 'value_cluster'},
-                            {'label': 'Behav. Fuzzy 0', 'value': 'behavioural_fuzzy_membership_0'},
-                            {'label': 'Behav. Fuzzy 1', 'value': 'behavioural_fuzzy_membership_1'},
-                            {'label': 'Value Fuzzy 0', 'value': 'value_fuzzy_membership_0'},
-                            {'label': 'Value Fuzzy 1', 'value': 'value_fuzzy_membership_1'}
+                            {'label': 'Fuzzy Mixed Behavioural', 'value': 'mixed_behavioural'},
+                            {'label': 'Fuzzy Mixed Value', 'value': 'mixed_value'}
                         ],
                         value='behavioural_cluster',
                         labelStyle={'display': 'block', 'marginBottom': '5px'}
                     ),
                     html.Br(),
                     
+                    html.Label("Data Scale"),
+                    dcc.RadioItems(
+                        id='scale-type',
+                        options=[
+                            {'label': 'Unscaled (Original)', 'value': 'unscaled'},
+                            {'label': 'Scaled (Model Input)', 'value': 'scaled'}
+                        ],
+                        value='unscaled',
+                        labelStyle={'display': 'block', 'marginBottom': '5px'}
+                    ),
+                    html.Br(),
+
                     html.Label("X Axis"),
                     dcc.Dropdown(id='x-axis-dropdown', options=axis_options, value='frequency', clearable=False),
                     html.Label("Y Axis", className="mt-2"),
@@ -220,9 +230,10 @@ app.layout = dbc.Container([
     Input('x-axis-dropdown', 'value'),
     Input('y-axis-dropdown', 'value'),
     Input('z-axis-dropdown', 'value'),
-    Input('cluster-type', 'value')
+    Input('cluster-type', 'value'),
+    Input('scale-type', 'value')
 )
-def update_graph(selected_genders, selected_educations, selected_marital, income_range, x_axis, y_axis, z_axis, cluster_col):
+def update_graph(selected_genders, selected_educations, selected_marital, income_range, x_axis, y_axis, z_axis, cluster_col, scale_type):
     dff = filter_data(df, selected_genders, selected_educations, selected_marital, income_range)
     
     if dff.empty:
@@ -234,11 +245,16 @@ def update_graph(selected_genders, selected_educations, selected_marital, income
     if 'fuzzy' not in cluster_col:
         dff[cluster_col] = dff[cluster_col].astype(str)
     
-    # Determine which columns to use for axes (Default to UNSCALED for better interpretation)
+    # Determine which columns to use for axes (Default is UNSCALED for better interpretation)
     # Check if unscaled exists, otherwise fallback to scaled
-    x_col = x_axis + '_unscaled' if x_axis + '_unscaled' in dff.columns else x_axis
-    y_col = y_axis + '_unscaled' if y_axis + '_unscaled' in dff.columns else y_axis
-    z_col = z_axis + '_unscaled' if z_axis + '_unscaled' in dff.columns else z_axis
+    if scale_type == 'unscaled':
+        x_col = x_axis + '_unscaled' if x_axis + '_unscaled' in dff.columns else x_axis
+        y_col = y_axis + '_unscaled' if y_axis + '_unscaled' in dff.columns else y_axis
+        z_col = z_axis + '_unscaled' if z_axis + '_unscaled' in dff.columns else z_axis
+    else:
+        x_col = x_axis
+        y_col = y_axis
+        z_col = z_axis
 
     fig = px.scatter_3d(
         dff,
@@ -431,4 +447,4 @@ def download_data(n_clicks, selected_genders, selected_educations, selected_mari
     return dcc.send_data_frame(dff.to_csv, "filtered_customer_data.csv")
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False)
