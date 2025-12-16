@@ -5,8 +5,21 @@ import plotly.express as px
 import pandas as pd
 import pathlib
 
+"""
+Amazing Airlines Customer Intelligence Dashboard
+------------------------------------------------
+This Dash application visualizes customer clusters and their attributes.
+It allows users to:
+1. View a 3D scatter plot of customer segments.
+2. Filter data by demographics (Gender, Education, Marital Status, Income).
+3. Inspect specific clusters and their "DNA" (feature averages) via a Radar Chart.
+4. Drill down into specific attribute distributions.
+5. See key performance indicators (KPIs) for the selected subset.
+6. Export the filtered data to CSV.
+"""
 
 
+# Try to load the file localy, otherwise from GitHub
 try:
     df = pd.read_csv("Data/clustered_df.csv")
 except FileNotFoundError:
@@ -27,14 +40,28 @@ AA_GREY = "#cacccc"
 AA_DARK = "#444444"
 AA_COLOR_SEQUENCE = [AA_NAVY, AA_PRIMARY, AA_GREY, AA_DARK, "#888888"]  # Extended for more clusters
 
+# Explicitly map Cluster IDs (0, 1, 2, 3, 4) to colors to ensure consistency across all plots
+# This prevents Plotly from assigning different colors if the data order changes
+CLUSTER_COLOR_MAP = {
+    '0': AA_NAVY,
+    '1': AA_PRIMARY,
+    '2': AA_GREY,
+    '3': AA_DARK,
+    '4': "#888888",
+    '5': AA_NAVY,
+    '6': AA_PRIMARY
+}
+
 # Initialize app with a bootstrap theme
+# (Bootstrap is just a simpler way to create the Dashboard)
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.SANDSTONE])
 
-# Define options for dropdowns
+# Define options for dropdown filters
 gender_options = [{'label': i, 'value': i} for i in df['Gender'].unique()]
 education_options = [{'label': i, 'value': i} for i in df['Education'].unique()]
 marital_options = [{'label': i, 'value': i} for i in df['Marital Status'].unique()]
 
+# Axis options for Scatter plot (all of them also exist in an unscaled format)
 axis_columns = [
     'Income', 'Customer Lifetime Value', 'Subscription_Duration_Days',
     'Flights_in_Subscription', 'Total_Flights', 'percentage_flights_as_sub',
@@ -44,7 +71,21 @@ axis_columns = [
 ]
 axis_options = [{'label': i, 'value': i} for i in axis_columns]
 
+# Function to filter data based on dropdown selections
 def filter_data(df, selected_genders, selected_educations, selected_marital, income_range):
+    """
+    Filters the dataframe based on user selections.
+    
+    Args:
+        df (pd.DataFrame): The source dataframe.
+        selected_genders (list): List of selected genders.
+        selected_educations (list): List of selected education levels.
+        selected_marital (list): List of selected marital statuses.
+        income_range (list): [min, max] range for income.
+        
+    Returns:
+        pd.DataFrame: The filtered dataframe.
+    """
     dff = df.copy()
     if selected_genders:
         dff = dff[dff['Gender'].isin(selected_genders)]
@@ -56,6 +97,7 @@ def filter_data(df, selected_genders, selected_educations, selected_marital, inc
     dff = dff[(dff['Income_unscaled'] >= income_range[0]) & (dff['Income_unscaled'] <= income_range[1])]
     return dff
 
+# Layout of the Dashboard
 app.layout = dbc.Container([
     # Header
     dbc.Row([
@@ -63,6 +105,7 @@ app.layout = dbc.Container([
     ], className="aa-header"),
 
     # Feature 1: KPI Scorecards (Re-styled)
+    # Boxes showing key metrices of the filtered customer data
     dbc.Row([
         dbc.Col(dbc.Card([
             dbc.CardBody([
@@ -91,6 +134,7 @@ app.layout = dbc.Container([
     ], className="mb-5"),
     
     # Main Analytical Content
+    # Row of Cards showing the main visualizations
     dbc.Row([
         # Main Visuals (3D + Radar)
         dbc.Col([
@@ -140,7 +184,7 @@ app.layout = dbc.Container([
             
         ], width=9),
 
-       # Control Panel (Left Side, Reduced Visual Weight)
+       # Control Panel (Reduced Visual Weight)
         dbc.Col([
             dbc.Card([
                 dbc.CardHeader("Exploration Controls", className="aa-card-header"),
@@ -221,6 +265,7 @@ app.layout = dbc.Container([
     ])
 ], fluid=True, className="bg-light")
 
+# Checks for user input (input function) and updates the elements defined in the Output function
 @app.callback(
     Output('cluster-3d-plot', 'figure'),
     Input('gender-filter', 'value'),
@@ -233,7 +278,12 @@ app.layout = dbc.Container([
     Input('cluster-type', 'value'),
     Input('scale-type', 'value')
 )
+
 def update_graph(selected_genders, selected_educations, selected_marital, income_range, x_axis, y_axis, z_axis, cluster_col, scale_type):
+    """
+    Updates the main 3D scatter plot based on filters and axis selections.
+    Handles switching between scaled and unscaled data, and different cluster definitions.
+    """
     dff = filter_data(df, selected_genders, selected_educations, selected_marital, income_range)
     
     if dff.empty:
@@ -256,16 +306,33 @@ def update_graph(selected_genders, selected_educations, selected_marital, income
         y_col = y_axis
         z_col = z_axis
 
+    # Prepare hover data: Ensure we show unscaled values for better readability
+    x_unscaled = x_axis + '_unscaled' if x_axis + '_unscaled' in dff.columns else x_axis
+    y_unscaled = y_axis + '_unscaled' if y_axis + '_unscaled' in dff.columns else y_axis
+    z_unscaled = z_axis + '_unscaled' if z_axis + '_unscaled' in dff.columns else z_axis
+    
+    # Base hover data
+    hover_cols = {'Loyalty#': True, 'City': True, 'Income_unscaled': True}
+    
+    # Add the unscaled axis/metric values to hover data
+    # We use a dict to customize formatting if needed, or simply True to include matches
+    # Note: Plotly Express hover_data list/dict keys must be columns in the dataframe
+    extra_hover = [x_unscaled, y_unscaled, z_unscaled]
+    for col in extra_hover:
+        if col not in hover_cols and col in dff.columns:
+            hover_cols[col] = True
+
     fig = px.scatter_3d(
         dff,
         x=x_col,
         y=y_col,
         z=z_col,
         color=cluster_col,
-        hover_data=['Loyalty#', 'City', 'Income'],
+        hover_data=hover_cols,
         custom_data=['Loyalty#', 'City', 'Income_unscaled', 'Gender', 'Education', 'Marital Status'],
         title=f"Customer Segments ({cluster_col.replace('_', ' ').title()})",
-        color_discrete_sequence=AA_COLOR_SEQUENCE
+        color_discrete_map=CLUSTER_COLOR_MAP,
+        color_discrete_sequence=AA_COLOR_SEQUENCE # Fallback
     )
     
     fig.update_layout(
@@ -282,6 +349,10 @@ def update_graph(selected_genders, selected_educations, selected_marital, income
     Input('cluster-3d-plot', 'clickData')
 )
 def display_click_data(clickData):
+    """
+    Displays detailed information about a clicked data point in the 3D scatter plot.
+    Also generates a bar chart for fuzzy membership probabilities if applicable.
+    """
     if clickData is None:
         return html.P("Click on a customer point to see details.", className="text-muted")
     
@@ -323,7 +394,7 @@ def display_click_data(clickData):
                 x=short_labels,
                 y=fuzzy_data.values,
                 labels={'x': 'Cluster', 'y': 'Probability'},
-                title="Cluster Membership Probability",
+                title="Fuzzy Cluster Membership",
                 color_discrete_sequence=[AA_PRIMARY]
             )
             fig.update_layout(
@@ -348,6 +419,10 @@ def display_click_data(clickData):
     Input('income-slider', 'value')
 )
 def update_kpis(selected_genders, selected_educations, selected_marital, income_range):
+    """
+    Updates the top KPI cards based on the current data filters.
+    Calculates Total Customers, Average Income, Average CLV, and Average Spend.
+    """
     dff = filter_data(df, selected_genders, selected_educations, selected_marital, income_range)
     
     total_customers = len(dff)
@@ -378,6 +453,10 @@ def update_kpis(selected_genders, selected_educations, selected_marital, income_
     Input('cluster-type', 'value')
 )
 def update_radar(selected_genders, selected_educations, selected_marital, income_range, cluster_col):
+    """
+    Updates the Radar Chart (Cluster DNA) to show the average profile of each cluster
+    across key metrics. Data is normalized to 0-1 for fair comparison on the radar axis.
+    """
     dff = filter_data(df, selected_genders, selected_educations, selected_marital, income_range)
     
     if dff.empty or 'fuzzy' in cluster_col:
@@ -394,7 +473,10 @@ def update_radar(selected_genders, selected_educations, selected_marital, income
     dff_grouped = dff_norm.groupby(cluster_col)[cols_to_plot].mean().reset_index()
     dff_grouped = pd.melt(dff_grouped, id_vars=[cluster_col], var_name='Metric', value_name='Score')
     
-    fig = px.line_polar(dff_grouped, r='Score', theta='Metric', line_close=True, color=cluster_col, color_discrete_sequence=AA_COLOR_SEQUENCE)
+    # Ensure cluster column is string for color mapping
+    dff_grouped[cluster_col] = dff_grouped[cluster_col].astype(str)
+    
+    fig = px.line_polar(dff_grouped, r='Score', theta='Metric', line_close=True, color=cluster_col, color_discrete_map=CLUSTER_COLOR_MAP, color_discrete_sequence=AA_COLOR_SEQUENCE)
     fig.update_layout(
         margin=dict(l=30, r=30, t=30, b=30),
         paper_bgcolor='rgba(0,0,0,0)',
@@ -412,6 +494,10 @@ def update_radar(selected_genders, selected_educations, selected_marital, income
     Input('distribution-metric-dropdown', 'value')
 )
 def update_distribution(selected_genders, selected_educations, selected_marital, income_range, cluster_col, metric):
+    """
+    Updates the Attribute Deep Dive plot.
+    Shows a Box Plot for categorical clusters or a Histogram for fuzzy/general views.
+    """
     dff = filter_data(df, selected_genders, selected_educations, selected_marital, income_range)
     
     # Use unscaled metric if available
@@ -423,7 +509,7 @@ def update_distribution(selected_genders, selected_educations, selected_marital,
          fig = px.histogram(dff, x=plot_metric, color=None, title=f"Distribution of {metric}", color_discrete_sequence=[AA_PRIMARY])
     else:
         dff[cluster_col] = dff[cluster_col].astype(str)
-        fig = px.box(dff, x=cluster_col, y=plot_metric, color=cluster_col, title=f"Distribution of {metric} by {cluster_col}", color_discrete_sequence=AA_COLOR_SEQUENCE)
+        fig = px.box(dff, x=cluster_col, y=plot_metric, color=cluster_col, title=f"Distribution of {metric} by {cluster_col}", color_discrete_map=CLUSTER_COLOR_MAP, color_discrete_sequence=AA_COLOR_SEQUENCE)
     
     fig.update_layout(
         paper_bgcolor='rgba(0,0,0,0)',
@@ -443,6 +529,10 @@ def update_distribution(selected_genders, selected_educations, selected_marital,
     prevent_initial_call=True
 )
 def download_data(n_clicks, selected_genders, selected_educations, selected_marital, income_range):
+    """
+    Triggered by the 'Download Data' button.
+    Filters the data and returns it as a CSV file download.
+    """
     dff = filter_data(df, selected_genders, selected_educations, selected_marital, income_range)
     return dcc.send_data_frame(dff.to_csv, "filtered_customer_data.csv")
 
